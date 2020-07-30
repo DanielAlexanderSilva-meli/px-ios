@@ -181,7 +181,8 @@ internal class MercadoPagoCheckoutViewModel: NSObject, NSCopying {
         }
         let discount = discountConfiguration.getDiscountConfiguration().discount
         let consumedDiscount = !discountConfiguration.getDiscountConfiguration().isAvailable
-        self.paymentData.setDiscount(discount, withCampaign: campaign, consumedDiscount: consumedDiscount)
+        let discountDescription = discountConfiguration.getDiscountConfiguration().discountDescription
+        self.paymentData.setDiscount(discount, withCampaign: campaign, consumedDiscount: consumedDiscount, discountDescription: discountDescription)
     }
 
     func clearDiscount() {
@@ -564,6 +565,22 @@ internal class MercadoPagoCheckoutViewModel: NSObject, NSCopying {
             configurations.insert(paymentMethodConfiguration)
         }
         return configurations
+    }
+
+    internal func updateCustomTexts() {
+        // If AdditionalInfo has custom texts override the ones set by MercadoPagoCheckoutBuilder
+        if let customTexts = checkoutPreference.pxAdditionalInfo?.pxCustomTexts {
+            if let translation = customTexts.payButton {
+                Localizator.sharedInstance.addCustomTranslation(.pay_button, translation)
+            }
+            if let translation = customTexts.payButtonProgress {
+                Localizator.sharedInstance.addCustomTranslation(.pay_button_progress, translation)
+            }
+            if let translation = customTexts.totalDescription {
+                Localizator.sharedInstance.addCustomTranslation(.total_to_pay, translation)
+                Localizator.sharedInstance.addCustomTranslation(.total_to_pay_onetap, translation)
+            }
+        }
     }
 
     public func updateCheckoutModel(paymentMethodSearch: PXInitDTO) {

@@ -91,6 +91,7 @@ final class PXOneTapViewController: PXComponentContainerViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         installmentRow.addChevronBackgroundViewGradient()
+        headerView?.updateConstraintsIfNecessary()
     }
 
     @objc func willEnterForeground() {
@@ -336,7 +337,6 @@ extension PXOneTapViewController {
     }
 
     private func getActionForModal(_ action: PXRemoteAction? = nil, isSplit: Bool = false, trackingPath: String? = nil, properties: [String: Any]? = nil) -> PXAction? {
-        let defaultTitle = "Pagar con otro medio".localized
         let nonSplitDefaultAction: () -> Void = { [weak self] in
             guard let self = self else { return }
             self.currentModal?.dismiss()
@@ -348,13 +348,12 @@ extension PXOneTapViewController {
             self.currentModal?.dismiss()
         }
 
-        let defaultAction = isSplit ? splitDefaultAction : nonSplitDefaultAction
-
         guard let action = action else {
-            return PXAction(label: defaultTitle, action: defaultAction)
+            return nil
         }
 
         guard let target = action.target else {
+            let defaultAction = isSplit ? splitDefaultAction : nonSplitDefaultAction
             return PXAction(label: action.label, action: defaultAction)
         }
 
@@ -498,23 +497,18 @@ extension PXOneTapViewController: PXOneTapHeaderProtocol {
     }
 
     func didTapDiscount() {
-        var discountReason: PXDiscountReason?
-
+        var discountDescription: PXDiscountDescription?
         if let discountConfiguration = viewModel.amountHelper.paymentConfigurationService.getDiscountConfigurationForPaymentMethodOrDefault(selectedCard?.cardId),
-            let reason = discountConfiguration.getDiscountConfiguration().reason {
-            discountReason = reason
+            let description = discountConfiguration.getDiscountConfiguration().discountDescription {
+            discountDescription = description
         }
 
-        let discountViewController = PXDiscountDetailViewController(amountHelper: viewModel.amountHelper, discountReason: discountReason)
-
-        if let discount = viewModel.amountHelper.discount {
-            PXComponentFactory.Modal.show(viewController: discountViewController, title: discount.getDiscountDescription()) {
+        if let discountDescription = discountDescription {
+            let discountViewController = PXDiscountDetailViewController(amountHelper: viewModel.amountHelper, discountDescription: PXDiscountDescriptionViewModel(discountDescription))
+            if viewModel.amountHelper.discount != nil {
+                PXComponentFactory.Modal.show(viewController: discountViewController, title: nil) {
                 self.setupNavigationBar()
-            }
-        } else if viewModel.amountHelper.consumedDiscount {
-            let modalTitle = discountReason?.title?.message ?? "modal_title_consumed_discount".localized
-            PXComponentFactory.Modal.show(viewController: discountViewController, title: modalTitle) {
-                self.setupNavigationBar()
+                }
             }
         }
     }
@@ -584,8 +578,16 @@ extension PXOneTapViewController: PXCardSliderProtocol {
 
     func selectCardInSliderAtIndex(_ index: Int) {
         let cardSliderViewModel = viewModel.getCardSliderViewModel()
-        if cardSliderViewModel.count - 1 >= index && index >= 0 {
-            slider.goToItemAt(index: index, animated: false)
+        if (0 ... cardSliderViewModel.count - 1).contains(index) {
+            do {
+                try slider.goToItemAt(index: index, animated: false)
+            } catch {
+                // We shouldn't reach this line. Track friction
+                let properties = viewModel.getSelectCardEventProperties(index: index, count: cardSliderViewModel.count)
+                trackEvent(path: TrackingPaths.Events.getErrorPath(), properties: properties)
+                selectFirstCardInSlider()
+                return
+            }
             let card = cardSliderViewModel[index]
             newCardDidSelected(targetModel: card)
         }
