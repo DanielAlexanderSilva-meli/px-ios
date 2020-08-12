@@ -293,11 +293,24 @@ extension PXBusinessResultViewModel: PXNewResultViewModelInterface {
 extension PXBusinessResultViewModel {
         func ToPaymentCongrats() -> PXPaymentCongrats {
             let paymentCongratsData = PXPaymentCongrats()
-                                                        .withStatus(businessResult.getBusinessStatus())
-                                                        .withHeaderTitle(getAttributedTitle().string)
+            switch businessResult.getBusinessStatus() {
+            case .APPROVED:
+                paymentCongratsData.withCongratsType(.APPROVED)
+            case .REJECTED:
+                paymentCongratsData.withCongratsType(.REJECTED)
+                
+            case .IN_PROGRESS:
+                paymentCongratsData.withCongratsType(.IN_PROGRESS)
+            case .PENDING:
+                paymentCongratsData.withCongratsType(.PENDING)
+            default:
+                paymentCongratsData.withCongratsType(.PENDING)
+            }
+            
+                                        paymentCongratsData
+                                                        .withHeader(title: getAttributedTitle().string, imageURL: businessResult.getImageUrl(), closeAction: headerCloseAction())
                                                         .withHeaderColor(primaryResultColor())
-                                                        .withHeaderImage(getHeaderDefaultIcon(), orURL: businessResult.getImageUrl())
-                                                        .withHeaderCloseAction(headerCloseAction())
+                                                        .withHeaderImage(getHeaderDefaultIcon())
             //Badge Image this is not necessary to call because the paymentCongrats have this default implementation
     //        if let badgeImage = ResourceManager.shared.getBadgeImageWith(status: businessResult.getBusinessStatus().getDescription()) {
     //            paymentCongratsData.withHeaderBadgeImage(badgeImage)
@@ -305,19 +318,16 @@ extension PXBusinessResultViewModel {
             
             //Recepit
             if businessResult.mustShowReceipt() {
-                paymentCongratsData.shouldShowReceipt(receiptId: businessResult.getReceiptId())
+                paymentCongratsData.withReceipt(receiptId: businessResult.getReceiptId(), action: pointsAndDiscounts?.viewReceiptAction)
             }
 
             //Points and Discounts
-            paymentCongratsData.withPoints(pointsAndDiscounts?.points)
+            paymentCongratsData.withLoyalty(pointsAndDiscounts?.points)
                                .withDiscounts(pointsAndDiscounts?.discounts)
                                .withCrossSelling(pointsAndDiscounts?.crossSelling)
-                               .withViewReceiptAction(action: pointsAndDiscounts?.viewReceiptAction)
-                               .shouldHaveCustomOrder(pointsAndDiscounts?.customOrder)
-
-            if let expenseSplit = pointsAndDiscounts?.expenseSplit {
-                paymentCongratsData.withExpenseSplit(expenseSplit.title, action: expenseSplit.action, imageURL: expenseSplit.imageUrl)
-            }
+                               .withCustomSorting(pointsAndDiscounts?.customOrder)
+                               .withExpenseSplit(expenseSplit: pointsAndDiscounts?.expenseSplit)
+            
             
             //Payment Info
 
@@ -326,14 +336,14 @@ extension PXBusinessResultViewModel {
             let pmTypeID = businessResult.getPaymentMethodTypeId()!
             let pmID = businessResult.getPaymentMethodId()!
             paymentCongratsData.withPaymentMethodInfo(assemblePaymentMethodInfo(paymentData: paymentData, amountHelper: amountHelper, currency: SiteManager.shared.getCurrency(), paymentMethodTypeId: pmTypeID, paymentMethodId: pmID))
-            //TODO Split Payment? and shouldShowPaymentMethod
+            //TODO Split Payment?
             
             
             //Actions
-            paymentCongratsData.withMainAction(businessResult.getMainAction())
+            paymentCongratsData.withFooterMainAction(businessResult.getMainAction())
 
             let linkAction = businessResult.getSecondaryAction() != nil ? businessResult.getSecondaryAction() : PXCloseLinkAction()
-            paymentCongratsData.withSecondaryAction(linkAction)
+            paymentCongratsData.withFooterSecondaryAction(linkAction)
 
             //Views
             paymentCongratsData.withCustomViews(important: businessResult.getImportantCustomView(), top: businessResult.getTopCustomView(), bottom: businessResult.getBottomCustomView())
@@ -356,6 +366,6 @@ extension PXBusinessResultViewModel {
             let paymentMethodExtraInfo = paymentData.paymentMethod?.creditsDisplayInfo?.description?.message
                 //getTransactionAmountWithDiscount()
             // TODO format prices with currency
-            return PXCongratsPaymentInfo(paidAmount: paidAmount, transactionAmount: transactionAmount, paymentMethodName: paymentMethodName, paymentMethodLastFourDigits: lastFourDigits, paymentMethodExtraInfo: paymentMethodExtraInfo, paymentMethodId: paymentMethodId, paymentMethodType: PXPaymentTypes(rawValue: paymentMethodTypeId)!, hasInstallments: hasInstallments, installmentsRate: installmentRate, installmentsCount: installments, installmentAmount: installmentAmount, hasDiscount: false, discountName: nil)
+            return PXCongratsPaymentInfo(paidAmount: paidAmount, transactionAmount: transactionAmount, paymentMethodName: paymentMethodName, paymentMethodLastFourDigits: lastFourDigits, paymentMethodDescription: paymentMethodExtraInfo, paymentMethodId: paymentMethodId, paymentMethodType: PXPaymentTypes(rawValue: paymentMethodTypeId)!, hasInstallments: hasInstallments, installmentsRate: installmentRate, installmentsCount: installments, installmentAmount: installmentAmount, hasDiscount: false, discountName: nil)
         }
 }
